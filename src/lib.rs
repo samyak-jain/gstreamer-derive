@@ -2,12 +2,12 @@ use proc_macro2::{Ident, TokenStream};
 use quote::{format_ident, quote, quote_spanned};
 use syn::{parse_macro_input, spanned::Spanned, DeriveInput};
 
-use crate::attributes::{link::generate_links, name::create_elements};
+use crate::attributes::{link::generate_links, name::create_elements, property::set_property};
 
 mod attributes;
 mod utils;
 
-#[proc_macro_derive(GStreamer, attributes(name, link_many))]
+#[proc_macro_derive(GStreamer, attributes(name, link_elements, property))]
 pub fn gstreamer_maker(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
     let parsed_input = parse_macro_input!(input as DeriveInput);
     let expanded = gstreamer_implementation(parsed_input);
@@ -22,6 +22,16 @@ fn gstreamer_implementation(input: DeriveInput) -> TokenStream {
 
     let created_elements = match input.data {
         syn::Data::Enum(ref enum_value) => create_elements(enum_value),
+        _ => {
+            let data_span = input.span();
+            quote_spanned! { data_span =>
+                compile_error!("This macro only works with enums");
+            }
+        }
+    };
+
+    let properties = match input.data {
+        syn::Data::Enum(ref enum_value) => set_property(enum_value),
         _ => {
             let data_span = input.span();
             quote_spanned! { data_span =>
@@ -64,6 +74,8 @@ fn gstreamer_implementation(input: DeriveInput) -> TokenStream {
                 ]);
 
                 #generated_links
+
+                #properties
 
                 #generated_name {
                     pipeline,

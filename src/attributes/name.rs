@@ -1,3 +1,4 @@
+use proc_macro2::{Ident, TokenStream};
 use quote::{quote, quote_spanned};
 use syn::{spanned::Spanned, DataEnum};
 
@@ -25,34 +26,37 @@ use crate::utils::convert_ident_case;
 // let uridecodebin = gstreamer::ElementFactory::make("uridecodebin", Some("input"));
 // ```
 //
-pub fn create_elements(data_enum: &DataEnum) -> proc_macro2::TokenStream {
+pub fn create_elements(data_enum: &DataEnum) -> Result<(TokenStream, Vec<Ident>), TokenStream> {
     // We initially create an empty [`TokenStream`](proc_macro2::TokenStream)
     // In every iteration, we will append the token generated from the attribute
     let mut element_creation = quote!();
     let variants = &data_enum.variants;
+    let mut ident_list: Vec<Ident> = Vec::with_capacity(variants.len());
 
     'variant_loop: for variant in variants {
         let original_ident = &variant.ident;
         let ident = convert_ident_case(original_ident);
+        ident_list.push(ident.clone());
+
         let attribute_list = &variant.attrs;
 
         for attribute in attribute_list {
-            if !attribute.path.is_ident("name") {
-                continue;
+            if !attribute.path.is_ident("name") || attribute.path.is_ident("count") {
+                continue 'variant_loop;
             }
 
             let parsed_attribute = match attribute.parse_meta() {
                 Ok(meta) => meta,
-                Err(err) => return err.to_compile_error(),
+                Err(err) => return Err(err.to_compile_error()),
             };
 
             let name_value_attribute = match parsed_attribute {
                 syn::Meta::NameValue(name_value_meta) => name_value_meta,
                 _ => {
                     let token_span = attribute.span();
-                    return quote_spanned! { token_span =>
+                    return Err(quote_spanned! { token_span =>
                         compile_error!("Expected a value to be assigned to name");
-                    };
+                    });
                 }
             };
 
@@ -60,9 +64,9 @@ pub fn create_elements(data_enum: &DataEnum) -> proc_macro2::TokenStream {
                 syn::Lit::Str(name) => name.value(),
                 _ => {
                     let name_token = name_value_attribute.span();
-                    return quote_spanned! { name_token =>
+                    return Err(quote_spanned! { name_token =>
                         compile_error!("name can only be assigned a string literal");
-                    };
+                    });
                 }
             };
 
@@ -80,5 +84,5 @@ pub fn create_elements(data_enum: &DataEnum) -> proc_macro2::TokenStream {
         });
     }
 
-    element_creation
+    Ok((element_creation, ident_list))
 }

@@ -7,7 +7,7 @@ fn get_ident<'a>(token: &'a NestedMeta, ident_list: &[Ident]) -> Option<&'a Iden
         let path = meta.path();
         let ident = path.get_ident();
         ident.and_then(|ident| {
-            if !ident_list.contains(&ident) {
+            if !ident_list.contains(ident) {
                 return None;
             }
             Some(ident)
@@ -24,7 +24,7 @@ pub fn generate_links(
     let mut link_creation = quote!();
 
     for attribute in attribute_list {
-        if !attribute.path.is_ident("link") {
+        if !attribute.path.is_ident("link_elements") {
             continue;
         }
 
