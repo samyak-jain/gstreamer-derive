@@ -11,5 +11,5 @@ enum GStreamerInput {
 
 fn main() {
     gstreamer::init().unwrap();
-    let test = GStreamerInput::build();
+    let _ = GStreamerInput::build();
 }

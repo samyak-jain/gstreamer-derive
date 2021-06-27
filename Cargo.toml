@@ -11,6 +11,10 @@ quote = "1.0"
 syn = { version = "1.0.73", features = ["derive", "parsing", "printing"] }
 gstreamer = { path = "../gstreamer-rs/gstreamer" }
 itertools = "0.10.1"
+heck = "0.3.3"
 
 [lib]
 proc-macro = true
+
+[features]
+check-config = []

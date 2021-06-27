@@ -1,6 +1,8 @@
 use quote::{quote, quote_spanned};
 use syn::{spanned::Spanned, DataEnum};
 
+use crate::utils::convert_ident_case;
+
 // The goal of this function is to create a TokenStream output such that we create an output which
 // looks like this following:
 // let element = gstreamer::ElementFactory::make("element", Some("element_name"));
@@ -29,11 +31,12 @@ pub fn create_elements(data_enum: &DataEnum) -> proc_macro2::TokenStream {
     let mut element_creation = quote!();
     let variants = &data_enum.variants;
 
-    for variant in variants {
-        let ident = &variant.ident;
-        let attributes = &variant.attrs;
+    'variant_loop: for variant in variants {
+        let original_ident = &variant.ident;
+        let ident = convert_ident_case(original_ident);
+        let attribute_list = &variant.attrs;
 
-        for attribute in attributes {
+        for attribute in attribute_list {
             if !attribute.path.is_ident("name") {
                 continue;
             }
@@ -65,11 +68,16 @@ pub fn create_elements(data_enum: &DataEnum) -> proc_macro2::TokenStream {
 
             element_creation.extend(quote! {
                 let #ident = gstreamer::ElementFactory::make(
-                    &stringify!(#ident).to_lowercase(), Some(#name)).unwrap();
+                    &stringify!(#original_ident).to_lowercase(), Some(#name)).unwrap();
             });
 
-            break;
+            continue 'variant_loop;
         }
+
+        element_creation.extend(quote! {
+                let #ident = gstreamer::ElementFactory::make(
+                    &stringify!(#original_ident).to_lowercase(), Some(stringify!(#ident))).unwrap();
+        });
     }
 
     element_creation
