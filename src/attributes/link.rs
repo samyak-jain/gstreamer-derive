@@ -2,15 +2,18 @@ use proc_macro2::Ident;
 use quote::{quote, quote_spanned};
 use syn::{spanned::Spanned, Attribute, NestedMeta};
 
-fn get_ident<'a>(token: &'a NestedMeta, ident_list: &[Ident]) -> Option<&'a Ident> {
+use crate::utils::convert_ident_case;
+
+fn get_ident<'a>(token: &NestedMeta, ident_list: &[Ident]) -> Option<Ident> {
     if let NestedMeta::Meta(meta) = token {
         let path = meta.path();
         let ident = path.get_ident();
         ident.and_then(|ident| {
-            if !ident_list.contains(ident) {
-                return None;
+            let converted_ident = convert_ident_case(ident);
+            if ident_list.contains(&converted_ident) {
+                return Some(converted_ident);
             }
-            Some(ident)
+            None
         })
     } else {
         None

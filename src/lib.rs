@@ -9,52 +9,48 @@ mod utils;
 
 #[proc_macro_derive(GStreamer, attributes(name, link_elements, property))]
 pub fn gstreamer_maker(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
-    let parsed_input = parse_macro_input!(input as DeriveInput);
-    let expanded = gstreamer_implementation(parsed_input);
+    let mut parsed_input = parse_macro_input!(input as DeriveInput);
+    let expanded = gstreamer_implementation(&mut parsed_input);
 
     expanded.into()
 }
 
-fn gstreamer_implementation(input: DeriveInput) -> TokenStream {
+fn gstreamer_implementation(input: &mut DeriveInput) -> TokenStream {
     let name = &input.ident;
 
     let generated_name = format_ident!("__GStreamer{}", name);
-
-    let created_elements = match input.data {
-        syn::Data::Enum(ref enum_value) => create_elements(enum_value),
+    let enum_value = match &input.data {
+        syn::Data::Enum(enum_value) => enum_value,
         _ => {
-            let data_span = input.span();
-            quote_spanned! { data_span =>
-                compile_error!("This macro only works with enums");
-            }
-        }
-    };
-
-    let properties = match input.data {
-        syn::Data::Enum(ref enum_value) => set_property(enum_value),
-        _ => {
-            let data_span = input.span();
-            quote_spanned! { data_span =>
-                compile_error!("This macro only works with enums");
-            }
-        }
-    };
-
-    let element_variables = match input.data {
-        syn::Data::Enum(ref enum_value) => enum_value
-            .variants
-            .iter()
-            .map(|variant| utils::convert_ident_case(&variant.ident))
-            .collect::<Vec<Ident>>(),
-        _ => {
-            let data_span = input.span();
-            return quote_spanned! { data_span =>
+            let span = input.span();
+            return quote_spanned! { span =>
                 compile_error!("This macro only works with enums");
             };
         }
     };
 
-    let generated_links = generate_links(&input.attrs, &element_variables);
+    let (created_elements, element_variables) = match create_elements(&enum_value) {
+        Ok(result) => result,
+        Err(err) => return err,
+    };
+
+    let properties = set_property(&enum_value);
+
+    // let element_variables = match input.data {
+    //     syn::Data::Enum(ref enum_value) => enum_value
+    //         .variants
+    //         .iter()
+    //         .map(|variant| utils::convert_ident_case(&variant.ident))
+    //         .collect::<Vec<Ident>>(),
+    //     _ => {
+    //         let data_span = input.span();
+    //         return quote_spanned! { data_span =>
+    //             compile_error!("This macro only works with enums");
+    //         };
+    //     }
+    // };
+
+    let generated_links = generate_links(&mut input.attrs, &element_variables);
 
     quote! {
         struct #generated_name {
