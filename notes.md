@@ -13,5 +13,5 @@ struct CustomData {
 }
 
 gstreamer!(
-    uridecodebin ! test
+    source
 )
